@@ -6,7 +6,7 @@ use Exception;
 
 function get_routes() {
 	global $request_data, $base_url;
-	$routes = [];
+	$routes = array();
 
 	// Request data!
 	$routes['/get'] = function () use ($request_data) {
@@ -78,9 +78,9 @@ function get_routes() {
 
 	// Cookies!
 	$routes['/cookies'] = function () {
-		return [
+		return array(
 			'cookies' => $_COOKIE,
-		];
+		);
 	};
 	$routes['/cookies/set'] = function () {
 		foreach ($_GET as $key => $value) {
@@ -107,10 +107,10 @@ function get_routes() {
 	};
 
 	$routes['/basic-auth/<user>/<password>'] = function ($args) {
-		$supplied = [
+		$supplied = array(
 			'user'     => empty($_SERVER['PHP_AUTH_USER']) ? false : $_SERVER['PHP_AUTH_USER'],
 			'password' => empty($_SERVER['PHP_AUTH_PW'])   ? false : $_SERVER['PHP_AUTH_PW'],
-		];
+		);
 
 		if ($args['user'] !== $supplied['user'] || $args['password'] !== $supplied['password']) {
 			http_response_code(401);
@@ -118,10 +118,10 @@ function get_routes() {
 			return;
 		}
 
-		return [
+		return array(
 			'authenticated' => true,
 			'user' => $args['user'],
-		];
+		);
 	};
 
 	// Redirects!
@@ -189,15 +189,18 @@ function get_routes() {
 	$routes['/stream/<num>'] = function ($args) use ($request_data) {
 		$response = $request_data;
 		$num = min($args['num'], 100);
-		$generate_stream = function () use ($num, $response) {
-			foreach (range(0, $num - 1) as $n) {
-				$response['id'] = $n;
-				yield json_encode( $response, JSON_PRETTY_PRINT ) . "\n";
+		$stream_parts = array();
+		foreach (range(0, $num - 1) as $n) {
+			$response['id'] = $n;
+			if (defined('JSON_PRETTY_PRINT')) {
+				$stream_parts[] = json_encode( $response, JSON_PRETTY_PRINT ) . "\n";
+			} else {
+				$stream_parts[] = json_encode( $response ) . "\n";
 			}
-		};
+		}
 
 		header('Transfer-Encoding: chunked');
-		foreach ( $generate_stream() as $response ) {
+		foreach ( $stream_parts as $response ) {
 			printf("%x\r\n%s\r\n", strlen($response), $response);
 			flush();
 		}
@@ -208,7 +211,11 @@ function get_routes() {
 		$response = $request_data;
 		$response['gzipped'] = true;
 
-		$response = json_encode($response, JSON_PRETTY_PRINT);
+		if (defined('JSON_PRETTY_PRINT')) {
+			$response = json_encode($response, JSON_PRETTY_PRINT);
+		} else {
+			$response = json_encode($response);
+		}
 		$response = gzencode($response, 4, FORCE_GZIP);
 
 		header('Content-Encoding: gzip');
@@ -237,7 +244,7 @@ function get_routes() {
 
 		echo '<ul>';
 		foreach ($routes as $url => $_) {
-			echo '<li><code>' . htmlspecialchars( $url ) . '</code></li>';
+			echo '<li><code>' . htmlspecialchars( $url, ENT_COMPAT, 'UTF-8' ) . '</code></li>';
 		}
 		echo '</ul>';
 		exit;
